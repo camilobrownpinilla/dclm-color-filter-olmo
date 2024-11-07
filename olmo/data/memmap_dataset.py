@@ -193,7 +193,9 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
             out["label_mask"] = label_mask
 
         if self._include_instance_metadata:
+            idx_in_memmap = memmap_local_index * self._chunk_size
             metadata = self._metadata[memmap_index]
+            metadata["memmap_idx_range"] = [idx_in_memmap, idx_in_memmap + self._chunk_size]
             out["metadata"] = deepcopy(metadata)
 
         if self._generate_attention_mask:

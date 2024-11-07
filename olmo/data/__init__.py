@@ -111,7 +111,7 @@ def build_train_dataloader(train_config: TrainConfig, world_size: Optional[int] 
     collator = DataCollator(
         pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
     )
-    dataset = build_memmap_dataset(train_config, train_config.data, include_instance_metadata=False)
+    dataset = build_memmap_dataset(train_config, train_config.data, include_instance_metadata=True)
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
