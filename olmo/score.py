@@ -12,6 +12,9 @@ import wandb
 from .data import DictMemmapWriter
 from .train import Trainer, SpeedMonitor
 from .torch_util import get_world_size, move_to_device
+from .tokenizer import Tokenizer
+from transformers import AutoTokenizer
+import json
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ class Scorer(Trainer):
         return metrics, batch_data
 
     def score_model(self):
+        tokenizer = Tokenizer.from_train_config(self.cfg)
+
         self._start_time = time.time()
 
         self.fsdp_model.eval()
@@ -80,73 +85,87 @@ class Scorer(Trainer):
         if self.cfg.data_start_step is not None:
             self.dataset.start_index = int(self.cfg.data_start_step) * self.cfg.global_train_batch_size
 
-        for batch in self.train_loader:
-            # Bookkeeping.
-            # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
-            # batches see the same number of tokens, which should be the case for language model pre-training
-            # (at least when drop_last=True).
-            # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
-            # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
-            # fail loudly.
-            batch_size, seq_len = batch["input_ids"].shape
-            assert seq_len == self.cfg.model.max_sequence_length
-            assert batch_size == self.cfg.device_train_batch_size
-            global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
-            self.global_step += 1
-            self.global_train_examples_seen_this_epoch += global_batch_size
-            self.global_train_tokens_seen += global_batch_size * seq_len
-            speed_monitor.batch_start(
-                self.global_train_tokens_seen,
-                batch_size * seq_len,  # num tokens in batch for this device
-                # We start monitoring speed after the first batch since the first
-                # batch might be an outlier due to compiling and other initialization overhead.
-                record=not first_batch,
-            )
+        jsonl_list = []
+        with open(f'{self.cfg.save_folder}/chunk_scores.jsonl', "a") as json_out:
+            for batch in self.train_loader:
+                # Bookkeeping.
+                # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
+                # batches see the same number of tokens, which should be the case for language model pre-training
+                # (at least when drop_last=True).
+                # Alternatively we'd have to use a distributed all reduce over seq_len here, but I don't want that
+                # overhead. So for now I'm putting these assertions here so if the assumption is violated it will
+                # fail loudly.
+                batch_size, seq_len = batch["input_ids"].shape
+                assert seq_len == self.cfg.model.max_sequence_length
+                assert batch_size == self.cfg.device_train_batch_size
+                global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
+                self.global_step += 1
+                self.global_train_examples_seen_this_epoch += global_batch_size
+                self.global_train_tokens_seen += global_batch_size * seq_len
+                speed_monitor.batch_start(
+                    self.global_train_tokens_seen,
+                    batch_size * seq_len,  # num tokens in batch for this device
+                    # We start monitoring speed after the first batch since the first
+                    # batch might be an outlier due to compiling and other initialization overhead.
+                    record=not first_batch,
+                )
 
-            should_log_this_step = self.should_log_this_step()
+                should_log_this_step = self.should_log_this_step()
 
-            # Run on batch
-            with torch.no_grad():
-                metrics, batch_data = self.score_step(batch)
+                # Run on batch
+                with torch.no_grad():
+                    metrics, batch_data = self.score_step(batch)
 
-            # Write outputs
-            idx = batch_data["index"]
-            score = batch_data["score"]
-            data_writer.write(idx, score)
+                # Write outputs
+                idx = batch_data["index"]
+                score = batch_data["score"]
+                data_writer.write(idx, score)
+                
+                # FOR DCLM: Write score and decoded sequence to json
+                for j in range(batch["input_ids"].shape[0]):
+                    input_ids = batch["input_ids"][j]
+                    json_line = \
+                        {"score": batch_data["score"][j], 
+                        "metadata": batch["metadata"][j]}
+                    for k, v in json_line.items():
+                        if isinstance(v, torch.Tensor):
+                            json_line[k] = v.tolist()
+                    json_line = json.dumps(json_line)
+                    json_out.write(json_line + "\n")
+                                           
+                # Maybe collect other metrics.
+                if should_log_this_step:
+                    # Speed metrics.
+                    metrics.update(speed_monitor.check())
+                    # System metrics.
+                    metrics.update(self.system_metrics())
 
-            # Maybe collect other metrics.
-            if should_log_this_step:
-                # Speed metrics.
-                metrics.update(speed_monitor.check())
-                # System metrics.
-                metrics.update(self.system_metrics())
+                # Log metrics to console.
+                if self.global_step % self.cfg.console_log_interval == 0:
+                    self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
 
-            # Log metrics to console.
-            if self.global_step % self.cfg.console_log_interval == 0:
-                self.log_metrics_to_console(f"[step={self.global_step}/{self.max_steps}]", metrics)
+                # Log metrics to W&B.
+                if (
+                    wandb.run is not None
+                    and self.cfg.wandb is not None
+                    and self.global_step % self.cfg.wandb.log_interval == 0
+                ):
+                    wandb.log(metrics, step=self.global_step)
 
-            # Log metrics to W&B.
-            if (
-                wandb.run is not None
-                and self.cfg.wandb is not None
-                and self.global_step % self.cfg.wandb.log_interval == 0
-            ):
-                wandb.log(metrics, step=self.global_step)
+                # Check if/when run should be canceled.
+                if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
+                    cancel_initiated, extra_steps = self.check_if_cancelled()
+                    if cancel_initiated:
+                        stop_at = (
+                            self.global_step + extra_steps
+                            if stop_at is None
+                            else min(self.global_step + extra_steps, stop_at)
+                        )
 
-            # Check if/when run should be canceled.
-            if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
-                cancel_initiated, extra_steps = self.check_if_cancelled()
-                if cancel_initiated:
-                    stop_at = (
-                        self.global_step + extra_steps
-                        if stop_at is None
-                        else min(self.global_step + extra_steps, stop_at)
-                    )
-
-            # End of batch.
-            first_batch = False
-            if stop_at is not None and self.global_step >= stop_at:
-                break
+                # End of batch.
+                first_batch = False
+                if stop_at is not None and self.global_step >= stop_at:
+                    break
 
         # Close writer
         data_writer.close()
