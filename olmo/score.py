@@ -8,13 +8,14 @@ from pathlib import Path
 import numpy as np
 import torch
 import wandb
+import json
+import os
 
 from .data import DictMemmapWriter
 from .train import Trainer, SpeedMonitor
 from .torch_util import get_world_size, move_to_device
 from .tokenizer import Tokenizer
-from transformers import AutoTokenizer
-import json
+from .registry import MODEL_DICT
 
 log = logging.getLogger(__name__)
 
@@ -85,8 +86,9 @@ class Scorer(Trainer):
         if self.cfg.data_start_step is not None:
             self.dataset.start_index = int(self.cfg.data_start_step) * self.cfg.global_train_batch_size
 
-        jsonl_list = []
-        with open(f'{self.cfg.save_folder}/chunk_scores.jsonl', "a") as json_out:
+        model = next(k for k, v in MODEL_DICT.items() if v == self.cfg.load_path)
+        os.makedirs(f'{self.cfg.save_folder}{model}', exist_ok=True)
+        with open(f'{self.cfg.save_folder}{model}/chunk_scores.jsonl', "a") as json_out:
             for batch in self.train_loader:
                 # Bookkeeping.
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -123,7 +125,6 @@ class Scorer(Trainer):
                 
                 # FOR DCLM: Write score and decoded sequence to json
                 for j in range(batch["input_ids"].shape[0]):
-                    input_ids = batch["input_ids"][j]
                     json_line = \
                         {"score": batch_data["score"][j], 
                         "metadata": batch["metadata"][j]}
