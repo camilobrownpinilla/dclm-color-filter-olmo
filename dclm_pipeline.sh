@@ -19,6 +19,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+export CHECKPOINTS_PATH=/n/holyscratch01/sham_lab/dclm/color_filter_data/
 # Optional Step 2: Training
 if [ "$SKIP_TRAINING" = false ]; then
     echo "Step 2: Training models..."

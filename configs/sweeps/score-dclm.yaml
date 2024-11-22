@@ -3,7 +3,8 @@
 #   group:  score-parallel
 
 just_score_model: true
-max_duration:  60000
+save_folder: /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run
+max_duration: 60000
 global_train_batch_size: 256
 device_train_microbatch_size: 256 
 restore_dataloader: false # restart from step 0

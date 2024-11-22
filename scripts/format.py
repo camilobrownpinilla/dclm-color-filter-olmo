@@ -71,8 +71,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     cfg = read_yaml(args.config)
     
-    TAR_PATHS = glob.glob(cfg.tar_paths)
-    MEMMAP_PATH = cfg.memmap_path
+    TAR_PATHS = glob.glob(cfg['tar_paths'])
+    MEMMAP_PATH = cfg['memmap_path']
 
     for tar in TAR_PATHS:
         print(f'Formatting {tar}')

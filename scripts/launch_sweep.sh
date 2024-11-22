@@ -10,7 +10,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem=250GB		
 #SBATCH --constraint=h100
-#SBATCH --array=1-4
+#SBATCH --array=1-2
 
 # Custom environment
 source ~/.bashrc

@@ -72,8 +72,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cfg = read_yaml(args.config)
     
-    folder1_path = os.path.join(cfg.checkpoints_path, cfg.prior_path)
-    folder2_path = os.path.join(cfg.checkpoints_path, cfg.conditional_path)
-    output_path = os.path.join(cfg.checkpoints_path, "combined", "chunk_scores.jsonl")
+    folder1_path = os.path.join(cfg['checkpoints_path'], cfg['prior_path'])
+    folder2_path = os.path.join(cfg['checkpoints_path'], cfg['conditional_path'])
+    output_path = os.path.join(cfg['checkpoints_path'], "combined", "chunk_scores.jsonl")
 
     main(folder1_path, folder2_path, output_path)

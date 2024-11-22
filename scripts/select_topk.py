@@ -101,6 +101,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     cfg = read_yaml(args.config)
 
-    SCORE_PATH = cfg.score_path
-    OUT_PATH = cfg.out_path
-    select(SCORE_PATH, OUT_PATH, cfg.k, cfg.documents)
+    SCORE_PATH = cfg['score_path']
+    OUT_PATH = cfg['out_path']
+    select(SCORE_PATH, OUT_PATH, cfg['k'], cfg['documents'])
