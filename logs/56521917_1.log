@@ -1,0 +1,8 @@
+holygpu8a11103:0 err: [W socket.cpp:464] [c10d] The server socket cannot be initialized on [::]:39989 (errno: 97 - Address family not supported by protocol).
+holygpu8a11103:0 err: [W socket.cpp:697] [c10d] The client socket cannot be initialized to connect to [holygpu8a11103.rc.fas.harvard.edu]:39989 (errno: 97 - Address family not supported by protocol).
+holygpu8a11103:0 out: 2024-11-07 18:50:39.569	holygpu8a11103.rc.fas.harvard.edu:0	train:330	INFO	multiprocessing start method set to 'spawn'
+holygpu8a11103:0 out: OLMoConfigurationError: Key 'method' not in 'TrainConfig'
+holygpu8a11103:0 out:     full_key: method
+holygpu8a11103:0 out:     object_type=TrainConfig
+srun: error: holygpu8a11103: task 0: Exited with exit code 1
+srun: Terminating StepId=56521917.0
