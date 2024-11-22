@@ -58,3 +58,6 @@ site/
 core
 /logs/
 /ckpts/
+../ckpts/
+../ai2_olmo.egg-info/
+../logs/
