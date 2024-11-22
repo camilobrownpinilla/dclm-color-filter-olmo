@@ -1,0 +1,4 @@
+score_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run/combined/chunk_scores.jsonl
+out_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/select_test
+k: 81920
+documents: True

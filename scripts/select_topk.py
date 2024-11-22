@@ -4,10 +4,14 @@ import os
 import tarfile
 import gzip
 import pathlib
+import argparse
+import yaml
 
 from olmo.util import get_bytes_range
-from format import MEMMAP_DTYPE
 
+def read_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
 
 def select(score_path, out_path, k, documents=False):
     """Selects either top k token chunks or documents and tarify's them.
@@ -80,7 +84,7 @@ def tarify(paths_and_indices, out_path, max_length=8192):
 
         tar_count += 1
 
-def _read_chunk_from_memmap(path, start, stop, dtype=MEMMAP_DTYPE):
+def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
         item_size = dtype(0).itemsize
         bytes_start = start * item_size 
         num_bytes = item_size * (stop - start) # stop - start is chunk length
@@ -92,6 +96,11 @@ def _read_chunk_from_memmap(path, start, stop, dtype=MEMMAP_DTYPE):
             return array.astype(np.int_)
         
 if __name__ == '__main__':
-    SCORE_PATH = '/n/home11/cbrownpinilla/color_filter/color-filter-olmo/ckpts/57684571_1/prior/chunk_scores.jsonl'
-    OUT_PATH = '/n/holyscratch01/sham_lab/dclm/color_filter_data/select_test'
-    select(SCORE_PATH, OUT_PATH, 8192 * 10, documents=True)
+    parser = argparse.ArgumentParser(description='Process some paths.')
+    parser.add_argument('config', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
+    cfg = read_yaml(args.config)
+
+    SCORE_PATH = cfg.score_path
+    OUT_PATH = cfg.out_path
+    select(SCORE_PATH, OUT_PATH, cfg.k, cfg.documents)

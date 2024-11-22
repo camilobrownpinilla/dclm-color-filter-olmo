@@ -88,6 +88,8 @@ class Scorer(Trainer):
 
         model = next(k for k, v in MODEL_DICT.items() if v == self.cfg.load_path)
         os.makedirs(f'{self.cfg.save_folder}{model}', exist_ok=True)
+        score_path = os.path.join(self.cfg.save_folder, model, f"chunk_scores_{self.cfg.data_start}.jsonl")
+        log.info("Score path:", score_path)
         with open(f'{self.cfg.save_folder}{model}/chunk_scores.jsonl', "a") as json_out:
             for batch in self.train_loader:
                 # Bookkeeping.

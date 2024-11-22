@@ -4,16 +4,19 @@ import gzip
 import glob
 import json
 import numpy as np
+import argparse
+import yaml
 
 from pathlib import Path
 from tqdm import tqdm
 from dolma.tokenizer.data_types import TokenizerOutput
 from dolma.tokenizer.memmap_writer import MemmapWriter
 
-TEST_TAR = '/n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-test/00000001.tar'
-MEMMAP_PATH = '/n/holyscratch01/sham_lab/dclm/color_filter_data/memmap_test'
-MEMMAP_DTYPE = np.uint16
-MAX_TOKENS = 512 * 1024 * 1024
+
+def read_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
+
 
 def format_tar(file, out_path, dtype=np.uint16, max_tokens=512*1024*1024):
     """Format a tar file containing tokenized documents into a numpy memmap array.
@@ -62,15 +65,18 @@ def format_tar(file, out_path, dtype=np.uint16, max_tokens=512*1024*1024):
 
 
 
-if __name__ == '__main__':
-    tars = glob.glob('/n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-test/*.tar')
-    for tar in tars:
+if __name__ == '__main__':   
+    parser = argparse.ArgumentParser(description='Process some paths.')
+    parser.add_argument('config', type=str, help='Path to the YAML configuration file')
+    args = parser.parse_args()
+    cfg = read_yaml(args.config)
+    
+    TAR_PATHS = glob.glob(cfg.tar_paths)
+    MEMMAP_PATH = cfg.memmap_path
+
+    for tar in TAR_PATHS:
         print(f'Formatting {tar}')
         format_tar(tar, MEMMAP_PATH)
-    
-                    
-
-
 
 
 

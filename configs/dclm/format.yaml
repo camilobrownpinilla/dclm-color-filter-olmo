@@ -1,0 +1,3 @@
+tar_paths: /n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-2/*.tar
+memmap_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/mem
+test_tar = '/n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-test/00000001.tar'
