@@ -11,8 +11,6 @@ max_duration: 1ep
 optimizer:
   learning_rate: 1.0e-3
 eval_interval: 95
-method: full
-select_frac: 1.0
 eval_on_load: true
 sweep:
   - data: 

@@ -1,7 +1,7 @@
-download_path = "YOUR_PATH_HERE"
+download_path = '/n/holyscratch01/sham_lab/dclm/color_filter'
 
 DATA_DICT = {
-    "c4": f"{download_path}/full_data/c4",
+    "c4": f"/n/holyscratch01/sham_lab/dclm/color_filter_data/memmap_test",
     "books-small": f"{download_path}/downstream_data/books",
     "books-val": f"{download_path}/downstream_data/books_val",
 }

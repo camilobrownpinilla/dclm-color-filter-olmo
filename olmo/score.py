@@ -87,8 +87,10 @@ class Scorer(Trainer):
             self.dataset.start_index = int(self.cfg.data_start_step) * self.cfg.global_train_batch_size
 
         model = next(k for k, v in MODEL_DICT.items() if v == self.cfg.load_path)
+        score_path = os.path.join(self.cfg.save_folder, [model, f'chunk_scores_{self.cfg.data_start_step}.jsonl'])
+        log.info(f'Score path: {score_path}')
         os.makedirs(f'{self.cfg.save_folder}{model}', exist_ok=True)
-        with open(f'{self.cfg.save_folder}{model}/chunk_scores.jsonl', "a") as json_out:
+        with open(score_path, "a") as json_out:
             for batch in self.train_loader:
                 # Bookkeeping.
                 # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all

@@ -6,7 +6,7 @@ import gzip
 import pathlib
 
 from olmo.util import get_bytes_range
-from format import MEMMAP_DTYPE
+from .format import MEMMAP_DTYPE
 
 
 def select(score_path, out_path, k, documents=False):
