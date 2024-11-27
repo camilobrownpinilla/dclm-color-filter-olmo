@@ -7,14 +7,29 @@ import json
 import os
 import git
 
-from transformers.utils import logging
+# Important stuff
 sys.path.append(str(Path(__file__).resolve().parent / 'dclm_color_filter_olmo'))
 sys.path.append(str(Path(__file__).resolve().parent / 'DCLM'))
 sys.path.append(str(Path(__file__).resolve().parent))  # Add the current directory to the sys.path
+SLURM_ID = os.environ.get('SLURM_JOB_ID')
+SLURM_TASK_ID = os.environ.get('SLURM_ARRAY_TASK_ID')
+GPUS = len(os.environ.get('CUDA_VISIBLE_DEVICES').split(','))
+
+import logging
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(f'../logs/{SLURM_ID}_{SLURM_TASK_ID}.log')  
+    ]
+)
+logger = logging.getLogger(__name__)
 
 from dclm_color_filter_olmo.scripts import select_topk 
 from DCLM.training.hyperparameters import get_scale_config
 from DCLM.training.dataset_reference import DatasetReference
+from torch.distributed import barrier
 
 
 # NOTE Example usage:
@@ -36,8 +51,6 @@ def main():
                         help='Name of yaml in DCLM/eval that determines evaluation scheme')
     args = parser.parse_args()
 
-    logger = logging.get_logger(__name__)
-
     # Select data
     logger.info(f'Arguments: {args}')
     logger.info('Selecting data...')
@@ -52,7 +65,7 @@ def main():
             logger.error(f'Could not create manifest. Exiting with code {return_code}')
             sys.exit(return_code)
 
-    dclm_dataset_path = Path('./DCLM/exp_data/datasets/tokenized/')
+    dclm_dataset_path = Path('./exp_data/datasets/tokenized/')
     dclm_dataset_name =  Path(args.selected_dir).stem
     logger.info('Selection complete.')
 
@@ -82,28 +95,29 @@ def main():
     # Train DCLM 
     logger.info('Training DCLM...')
     dclm_args = shlex.split(
-        f'torchrun --nproc-per-node 4 -m DCLM.training.train -- '
+        f'torchrun --nproc-per-node {GPUS} -m training.train -- '
         f'--scale {args.dclm_scale} '
         f'--data-config {json_path} '
-        f'--logs ./DCLM/logs '
+        f'--logs ./DCLM_logs '
         f'--torchcompile'
     )
     return_code = subprocess.call(dclm_args)
     if return_code != 0:
         logger.error(f'Training failed with return code {return_code}. Aborting the script.')
         sys.exit(return_code)  
+    barrier()
 
     # Eval DCLM
     # Idea is to get the model uuid evaluate needs by grabbing from most recently
     # made file, which should be the model we just trained.
-    model_uuid = get_most_recent_uuid('./DCLM/exp_data/models')
+    model_uuid = get_most_recent_uuid('./exp_data/models')
     logger.info('Evaluating DCLM...')
     eval_args = shlex.split(
-        f"python DCLM/tools/eval_expdb.py "
-        f"--num_gpus 4 "
+        f"python tools/eval_expdb.py "
+        f"--num_gpus {GPUS} "
         f"--no_skip "
-        f"--output_dir ./DCLM/exp_data/evals "
-        f"--eval_yaml ./DCLM/evalarg/{args.evaluation}.yaml "
+        f"--output_dir ./exp_data/evals "
+        f"--eval_yaml ./evalarg/{args.evaluation}.yaml "
         f"-f 'uuid={model_uuid}' "
         f"--skip_perplexity"
     )
@@ -129,7 +143,7 @@ def count_tokens(manifest_url, seqlen=2049):
     return num_tokens
 
 def get_git_info():
-    repo = git.Repo('./DCLM')
+    repo = git.Repo('.')
     dcnlp_commit_hash = repo.head.object.hexsha
     dcnlp_diff = repo.git.diff(repo.head.commit.tree)
     return dcnlp_commit_hash, dcnlp_diff
