@@ -1,0 +1,3 @@
+checkpoints_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run
+prior_path: prior
+conditional_path: conditional_all
