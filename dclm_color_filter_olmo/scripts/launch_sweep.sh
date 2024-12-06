@@ -1,6 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=color-filter
 #SBATCH --output=logs/%A_%a.log
+#SBATCH -p kempner_h100
+#SBATCH --account=kempner_sham_lab
 #SBATCH --nodes=1              
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1     
@@ -8,6 +10,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem=250GB		
 #SBATCH --constraint=h100
+#SBATCH --array=1-2
 
 # Custom environment
 source ~/.bashrc

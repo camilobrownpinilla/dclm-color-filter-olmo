@@ -39,6 +39,9 @@ def build_memmap_dataset(
 ) -> MemMapDataset:
     paths: List[str]
     metadata: List[Dict[str, Any]] = []
+
+    print(f"data_config.paths: {data_config.paths}")
+    print(f"data_config:", data_config)
     if data_config.paths:
         if data_config.datasets:
             raise OLMoConfigurationError("DataConfig.paths is mutually exclusive with DataConfig.datasets")
