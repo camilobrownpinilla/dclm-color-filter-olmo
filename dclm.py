@@ -33,17 +33,11 @@ from torch.distributed import barrier
 
 
 # NOTE Example usage:
-# python dclm.py --filtered_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run/prior/chunk_scores.jsonl --selected_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/pipeline_test --k 10 --type chunks --evaluation light
+# python dclm.py --selected_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/pipeline_test --evaluation light
 def main():
     parser = argparse.ArgumentParser(description='Select filtered data and train/evaluate in the DCLM framework')
-    parser.add_argument('--filtered_dir', type=str, required=True, 
-                        help='Path to Color-Filtered dataset')
     parser.add_argument('--selected_dir', type=str, required=True, 
                         help='Path to selected dataset')
-    parser.add_argument('--k', type=int, required=True, 
-                        help='How many datapoints to choose')
-    parser.add_argument('--type', type=str, choices=['chunks', 'documents'], 
-                        required=True, help='Whether to choose documents or chunks')
     parser.add_argument('--dclm_scale', type=str, default='411m_1x', 
                         help='Scale at which to train DCLM')
     parser.add_argument('--evaluation', type=str, required=True, default='light', 
@@ -51,11 +45,7 @@ def main():
                         help='Name of yaml in DCLM/eval that determines evaluation scheme')
     args = parser.parse_args()
 
-    # Select data
-    logger.info(f'Arguments: {args}')
-    logger.info('Selecting data...')
-    documents = args.type == 'documents'
-    select_topk.select(args.filtered_dir, args.selected_dir, args.k, documents=documents)
+
 
     # DCLM training requirements
     if not Path(f'{args.selected_dir}/manifest.jsonl').is_file():

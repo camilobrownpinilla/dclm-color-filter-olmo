@@ -21,4 +21,7 @@ conda deactivate
 conda activate color-filter
 cd DCLM/
 
-python ../dclm.py --filtered_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run/prior/chunk_scores.jsonl --selected_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/dclm_train_test --k 10 --type documents --evaluation light
+python ../dclm.py \
+    --selected_dir /n/holyscratch01/sham_lab/dclm/color_filter_data/dclm_train_test \
+    --dclm_scale 411m_1x\
+    --evaluation light
