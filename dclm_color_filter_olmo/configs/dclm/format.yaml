@@ -1,3 +1,3 @@
-tar_paths: "/n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-2/*.tar"
-memmap_path: "/n/holyscratch01/sham_lab/dclm/color_filter_data/memmap_dataset"
-test_tar: "/n/holyscratch01/sham_lab/dclm/data/dclm-tokenized-test/00000001.tar"
+tar_paths: "/n/netscratch/sham_lab/Everyone/dclm/color_filter/data/tokshuf/core-task-trainsets/*.tar"
+memmap_path: "/n/netscratch/sham_lab/Everyone/dclm/color_filter/data/memmap/core-task-trainsets"
+processes: null # Set to number of processes wanted to process tars. Defaults to number of CPU cores.
