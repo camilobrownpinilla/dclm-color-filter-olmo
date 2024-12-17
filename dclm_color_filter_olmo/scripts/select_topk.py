@@ -13,6 +13,7 @@ def read_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
+
 def select(score_path, out_path, k, documents=False):
     """Selects either top k token chunks or documents and tarify's them.
 
@@ -53,7 +54,6 @@ def select(score_path, out_path, k, documents=False):
     tarify(top_k, out_path)
 
                 
-
 def tarify(paths_and_indices, out_path, max_length=8192):
     """Packages list of paths and indices into tar files contaiing 'max_length'
        .json.gz files.
@@ -84,6 +84,7 @@ def tarify(paths_and_indices, out_path, max_length=8192):
 
         tar_count += 1
 
+
 def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
         item_size = dtype(0).itemsize
         bytes_start = start * item_size 
@@ -94,13 +95,56 @@ def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
             return array
         else:
             return array.astype(np.int_)
-        
+
+
+def select_top_n_tokens(score_path, out_path, n, r):
+    """Selects top n tokens and repeats the selection r times.
+
+    Args:
+        score_path (Path): Path to jsonl with scores.
+        out_path (Path): Where to write out selected data.
+        n (int): Number of tokens to select.
+        r (int): Number of times to repeat the selection.
+    """
+    for repeat in range(r):
+        print(f"Iteration {repeat + 1} of {r}: Selecting top {n} tokens")
+        top_tokens = []
+        total_tokens = 0
+
+        with open(score_path, 'r') as f:
+            for line in f:
+                if total_tokens >= n:
+                    break
+                line = json.loads(line)
+                metadata = line['metadata']
+                npy_path = metadata['path']
+                idx_range = metadata['memmap_idx_range']
+
+                chunk_size = idx_range[1] - idx_range[0]
+                if total_tokens + chunk_size > n:
+                    adjusted_range = [idx_range[0], idx_range[0] + (n - total_tokens)]
+                    top_tokens.append([npy_path, adjusted_range])
+                    total_tokens += (n - total_tokens)
+                else:
+                    top_tokens.append([npy_path, idx_range])
+                    total_tokens += chunk_size
+
+        iteration_out_path = os.path.join(out_path, f'repeat_{repeat:03d}')
+        tarify(top_tokens, iteration_out_path)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some paths.')
     parser.add_argument('config', type=str, help='Path to the YAML configuration file')
+    parser.add_argument('--top-n-tokens', type=int, help='Number of tokens to select')
+    parser.add_argument('--repeat', type=int, help='Number of times to repeat selection')
+
     args = parser.parse_args()
     cfg = read_yaml(args.config)
 
     SCORE_PATH = cfg['score_path']
     OUT_PATH = cfg['out_path']
-    select(SCORE_PATH, OUT_PATH, cfg['k'], cfg['documents'])
+    if args.top_n_tokens and args.repeat:
+        select_top_n_tokens(SCORE_PATH, OUT_PATH, args.top_n_tokens, args.repeat)
+    else:
+        select(SCORE_PATH, OUT_PATH, cfg['k'], cfg['documents'])
