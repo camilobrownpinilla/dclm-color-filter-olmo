@@ -87,7 +87,7 @@ class Scorer(Trainer):
             self.dataset.start_index = int(self.cfg.data_start_step) * self.cfg.global_train_batch_size
 
         model = next(k for k, v in MODEL_DICT.items() if v == self.cfg.load_path)
-        os.makedirs(f'{self.cfg.save_folder}{model}', exist_ok=True)
+        os.makedirs(os.path.join(self.cfg.save_folder, model), exist_ok=True)
         score_path = os.path.join(self.cfg.save_folder, model, f"chunk_scores_{self.cfg.data_start_step}.jsonl")
         log.info("Score path: %s", score_path)
         with open(score_path, "a") as json_out:

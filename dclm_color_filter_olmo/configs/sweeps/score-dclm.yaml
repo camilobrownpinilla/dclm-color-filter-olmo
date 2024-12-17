@@ -3,7 +3,7 @@
 #   group:  score-parallel
 
 just_score_model: true
-save_folder: /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run
+save_folder: /n/netscratch/sham_lab/Everyone/dclm/color_filter/runs/dclm-filtered_core-task-trainsets
 max_duration: 60000
 global_train_batch_size: 256
 device_train_microbatch_size: 256 

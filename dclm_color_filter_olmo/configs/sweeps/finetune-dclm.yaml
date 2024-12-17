@@ -15,9 +15,7 @@ sft_dataset:
   sft: true
   sft_use_label: true 
 sweep:
-  - sft_dataset:
-      label: 
-        - piqa_train
-    eval_interval: 100
+  - data: 
+      paths: conditional_data
     scheduler:
-      t_warmup: 100
+      t_warmup: 20

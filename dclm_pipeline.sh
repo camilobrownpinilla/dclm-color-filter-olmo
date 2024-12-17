@@ -19,12 +19,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-export CHECKPOINTS_PATH=/n/holyscratch01/sham_lab/dclm/color_filter_data/
+export CHECKPOINTS_PATH=/n/netscratch/sham_lab/Everyone/dclm/color_filter/dclm-pipeline-checkpointing-test
 # Optional Step 2: Training
 if [ "$SKIP_TRAINING" = false ]; then
     echo "Step 2: Training models..."
-    sbatch scripts/launch_sweep.sh configs/sweeps/color-1b-dclm.yaml 1
-    sbatch scripts/launch_sweep.sh configs/sweeps/finetune-dclm.yaml 1
+    sbatch scripts/launch_sweep.sh configs/sweeps/pretrain.yaml 
+    sbatch scripts/launch_sweep.sh configs/sweeps/finetune-dclm.yaml 
 else
     echo "Skipping training step."
 fi

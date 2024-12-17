@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 from dclm_color_filter_olmo.scripts import select_topk 
 from DCLM.training.hyperparameters import get_scale_config
 from DCLM.training.dataset_reference import DatasetReference
-from torch.distributed import barrier
 
 
 # NOTE Example usage:
@@ -43,12 +42,14 @@ def main():
     parser.add_argument('--evaluation', type=str, required=True, default='light', 
                         choices=['light', 'gsm8k', 'heavy_code', 'heacy_ppl', 'heavy', 'math_code', 'medium', 'mmlu_and_lowvar', 'special', 'cot_fix_plus_gpq_triviaqa', 'cot_fix_plus_gpq'], 
                         help='Name of yaml in DCLM/eval that determines evaluation scheme')
+    parser.add_argument('--multiple_data_passes', action='store_true')
     args = parser.parse_args()
 
 
 
     # DCLM training requirements
     if not Path(f'{args.selected_dir}/manifest.jsonl').is_file():
+        logger.info('Making manifests...')
         manifest_args = shlex.split(f'python -m open_lm.utils.make_wds_manifest --data-dir {args.selected_dir}')
         return_code = subprocess.call(manifest_args)
         if return_code != 0:
@@ -57,7 +58,7 @@ def main():
 
     dclm_dataset_path = Path('./exp_data/datasets/tokenized/')
     dclm_dataset_name =  Path(args.selected_dir).stem
-    logger.info('Selection complete.')
+    logger.info('Processing data...')
 
     dcnlp_commit_hash, dcnlp_diff = get_git_info()
     json_data = {
@@ -89,13 +90,14 @@ def main():
         f'--scale {args.dclm_scale} '
         f'--data-config {json_path} '
         f'--logs ./DCLM_logs '
-        f'--torchcompile'
+        # f'--torchcompile '
+        f'--multiple-data-passes' if args.multiple_data_passes else ''
     )
+    
     return_code = subprocess.call(dclm_args)
     if return_code != 0:
         logger.error(f'Training failed with return code {return_code}. Aborting the script.')
         sys.exit(return_code)  
-    barrier()
 
     # Eval DCLM
     # Idea is to get the model uuid evaluate needs by grabbing from most recently
@@ -103,11 +105,11 @@ def main():
     model_uuid = get_most_recent_uuid('./exp_data/models')
     logger.info('Evaluating DCLM...')
     eval_args = shlex.split(
-        f"python tools/eval_expdb.py "
+        f"python -m tools.eval_expdb "
         f"--num_gpus {GPUS} "
         f"--no_skip "
         f"--output_dir ./exp_data/evals "
-        f"--eval_yaml ./evalarg/{args.evaluation}.yaml "
+        f"--eval_yaml eval/{args.evaluation}.yaml "
         f"-f 'uuid={model_uuid}' "
         f"--skip_perplexity"
     )

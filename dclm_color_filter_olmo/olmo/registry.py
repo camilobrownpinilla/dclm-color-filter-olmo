@@ -2,8 +2,8 @@ download_path = "/n/holyscratch01/sham_lab/dclm/color_filter"
 
 DATA_DICT = {
     # "c4": f"{download_path}/full_data/c4",
-    "c4": f"/n/holyscratch01/sham_lab/dclm/color_filter_data/memmap_test",
-    "books-small": f"{download_path}/downstream_data/books",
+    "prior_data": f"/n/netscratch/sham_lab/Everyone/dclm/color_filter/data/memmap/dclm-filtered",
+    "conditional_data": f"/n/netscratch/sham_lab/Everyone/dclm/color_filter/data/memmap/core-task-trainsets",
     "books-val": f"{download_path}/downstream_data/books_val",
 }
 
