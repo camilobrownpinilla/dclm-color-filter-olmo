@@ -1,4 +1,12 @@
-score_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/first_run/combined/chunk_scores.jsonl
-out_path: /n/holyscratch01/sham_lab/dclm/color_filter_data/select_test
-k: 81920
-documents: True
+score_path: /n/netscratch/sham_lab/Everyone/dclm/color_filter/scores/dclm-filtered_core-train-tasks_3-to-5/combined/chunk_scores.jsonl
+out_path: /n/netscratch/sham_lab/Everyone/dclm/color_filter/data/selected/dclm-filtered_core-train-tasks_3-to-5/top_1b
+
+# Use `n` and `repeat` to choose the top `n` tokens and repeat them `repeat` times.
+# This option is mutually exclusive with `k` and `documents`, which refer to top
+# `k` documents if documents is true or top `k` chunks otherwise. Set `n` and `repeat`
+# to null to allow chunk/document selection.
+n: 1_100_000_000
+repeat: 8
+
+k: null
+documents: null

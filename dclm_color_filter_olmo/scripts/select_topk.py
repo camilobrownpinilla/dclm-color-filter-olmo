@@ -6,6 +6,8 @@ import gzip
 import pathlib
 import argparse
 import yaml
+import multiprocessing
+from tqdm import tqdm
 
 from olmo.util import get_bytes_range
 
@@ -28,7 +30,7 @@ def select(score_path, out_path, k, documents=False):
     count = 0
 
     with open(score_path, 'r') as f:
-        for line in f:
+        for line in tqdm(f, desc='Selecting tokens', colour='green'):
             if count >= k:
                 break
             line = json.loads(line)
@@ -69,7 +71,7 @@ def tarify(paths_and_indices, out_path, max_length=8192):
                   for x in range(0, len(paths_and_indices), max_length)]
     
     tar_count = 0
-    for batch in tar_splits:
+    for batch in tqdm(tar_splits, desc='Tarifying', colour='green'):
         tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
         with tarfile.open(tar_path, 'w') as tar:
             for i, (path, [start, stop]) in enumerate(batch):
@@ -83,6 +85,56 @@ def tarify(paths_and_indices, out_path, max_length=8192):
                     tar.add(json_path, arcname=os.path.basename(json_path))
                     os.remove(json_path)  # Clean up intermediate file
         tar_count += 1
+
+
+def tarify_parallel(paths_and_indices, 
+                    out_path, 
+                    max_length=8192, 
+                    n_processes=multiprocessing.cpu_count()):
+    """
+    Packages list of paths and indices into tar files containing 'max_length'
+    .json.gz files only, processing in parallel.
+
+    Args:
+        paths_and_indices (list): List of tuples like [(Path, [index range]), ...]
+        out_path (str): Where to save .tars
+        max_length (int): Required token length for saving files.
+        n_processes (int): Number of processes for parallelization.
+    """
+    print(f'\033[33mTarifying across {n_processes} processes\033[0m')
+    os.makedirs(out_path, exist_ok=True)
+    tar_splits = [paths_and_indices[x : x + max_length]
+                  for x in range(0, len(paths_and_indices), max_length)]
+
+    # Prepare arguments for multiprocessing
+    args = [
+        (batch, out_path, tar_count, max_length)
+        for tar_count, batch in enumerate(tar_splits)
+    ]
+
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        with tqdm(desc='Tarifying', colour='green', total=len(tar_splits)) as pbar:
+            for _ in pool.imap_unordered(_process_tar_batch, args):
+                pbar.update(1) 
+
+
+def _process_tar_batch(args):
+    batch, out_path, tar_count, max_length = args
+    if 'repeat_iteration' in globals():
+        tar_path = os.path.join(out_path, f'{tar_count:05d}_{repeat_iteration}.tar')
+    else:
+        tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
+    with tarfile.open(tar_path, 'w') as tar:
+        for i, (path, [start, stop]) in enumerate(batch):
+            tokens = _read_chunk_from_memmap(path, start, stop).tolist()
+
+            json_filename = f'tar_{tar_count:05d}_chunk_{i:05d}.json.gz'
+            json_path = os.path.join(out_path, json_filename)
+            with gzip.open(json_path, 'wt') as json_file:
+                json.dump(tokens, json_file)
+
+            tar.add(json_path, arcname=os.path.basename(json_filename))
+            os.remove(json_path)  # Clean up intermediate file
 
 
 def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
@@ -106,46 +158,47 @@ def select_top_n_tokens(score_path, out_path, n, r):
         n (int): Number of tokens to select.
         r (int): Number of times to repeat the selection.
     """
-    for repeat in range(r):
-        print(f"Iteration {repeat + 1} of {r}: Selecting top {n} tokens")
-        top_tokens = []
-        total_tokens = 0
+    global repeat_iteration
+    print(f"Selecting top {n} tokens...")
+    top_tokens = []
+    total_tokens = 0
 
-        with open(score_path, 'r') as f:
-            for line in f:
-                if total_tokens >= n:
-                    break
-                line = json.loads(line)
-                metadata = line['metadata']
-                npy_path = metadata['path']
-                idx_range = metadata['memmap_idx_range']
+    with open(score_path, 'r') as f:
+        for line in f:
+            if total_tokens >= n:
+                break
+            line = json.loads(line)
+            metadata = line['metadata']
+            npy_path = metadata['path']
+            idx_range = metadata['memmap_idx_range']
 
-                chunk_size = idx_range[1] - idx_range[0]
-                if total_tokens + chunk_size > n:
-                    adjusted_range = [idx_range[0], idx_range[0] + (n - total_tokens)]
-                    top_tokens.append([npy_path, adjusted_range])
-                    total_tokens += (n - total_tokens)
-                else:
-                    top_tokens.append([npy_path, idx_range])
-                    total_tokens += chunk_size
+            chunk_size = idx_range[1] - idx_range[0]
+            if total_tokens + chunk_size > n:
+                adjusted_range = [idx_range[0], idx_range[0] + (n - total_tokens)]
+                top_tokens.append([npy_path, adjusted_range])
+                total_tokens += (n - total_tokens)
+            else:
+                top_tokens.append([npy_path, idx_range])
+                total_tokens += chunk_size
 
-        iteration_out_path = os.path.join(out_path, f'repeat_{repeat:03d}')
-
-        tarify(top_tokens, iteration_out_path)
+    for repeat_iteration in range(r):
+        print(f'Repeat iteration {repeat_iteration + 1} of {r}...')
+        tarify_parallel(top_tokens, out_path)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some paths.')
     parser.add_argument('config', type=str, help='Path to the YAML configuration file')
-    parser.add_argument('--top-n-tokens', type=int, help='Number of tokens to select')
-    parser.add_argument('--repeat', type=int, help='Number of times to repeat selection')
 
     args = parser.parse_args()
     cfg = read_yaml(args.config)
 
     SCORE_PATH = cfg['score_path']
     OUT_PATH = cfg['out_path']
-    if args.top_n_tokens and args.repeat:
-        select_top_n_tokens(SCORE_PATH, OUT_PATH, args.top_n_tokens, args.repeat)
+    top_n_tokens, repeat = int(cfg['n']), int(cfg['repeat'])
+    os.makedirs(OUT_PATH) # No exist_ok to safeguard overwriting selections
+
+    if top_n_tokens and repeat:
+        select_top_n_tokens(SCORE_PATH, OUT_PATH, top_n_tokens, repeat)
     else:
         select(SCORE_PATH, OUT_PATH, cfg['k'], cfg['documents'])
