@@ -10,10 +10,6 @@ load_checkpoint_type: unsharded
 eval_on_load: true
 device_train_microbatch_size: 32
 max_duration: 1ep
-sft_dataset:
-  type: downstream
-  sft: true
-  sft_use_label: true 
 sweep:
   - data: 
       paths: conditional_data
