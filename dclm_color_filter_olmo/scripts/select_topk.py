@@ -3,7 +3,8 @@ import json
 import os
 import tarfile
 import gzip
-import pathlib
+from pathlib import Path
+import shutil
 import argparse
 import yaml
 import multiprocessing
@@ -120,10 +121,7 @@ def tarify_parallel(paths_and_indices,
 
 def _process_tar_batch(args):
     batch, out_path, tar_count, max_length = args
-    if 'repeat_iteration' in globals():
-        tar_path = os.path.join(out_path, f'{tar_count:05d}_{repeat_iteration}.tar')
-    else:
-        tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
+    tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
     with tarfile.open(tar_path, 'w') as tar:
         for i, (path, [start, stop]) in enumerate(batch):
             tokens = _read_chunk_from_memmap(path, start, stop).tolist()
@@ -149,16 +147,16 @@ def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
             return array.astype(np.int_)
 
 
-def select_top_n_tokens(score_path, out_path, n, r):
-    """Selects top n tokens and repeats the selection r times.
+def select_top_n_tokens(score_path, out_path, n, r, n_processes=multiprocessing.cpu_count()):
+    """Selects top n tokens and copies the tar files r times.
 
     Args:
         score_path (Path): Path to jsonl with scores.
         out_path (Path): Where to write out selected data.
         n (int): Number of tokens to select.
-        r (int): Number of times to repeat the selection.
+        r (int): Number of times to repeat the selection by copying tar files.
+        n_processes (int, optional): Number of processes for parallelization. Defaults to CPU count.
     """
-    global repeat_iteration
     print(f"Selecting top {n} tokens...")
     top_tokens = []
     total_tokens = 0
@@ -181,9 +179,21 @@ def select_top_n_tokens(score_path, out_path, n, r):
                 top_tokens.append([npy_path, idx_range])
                 total_tokens += chunk_size
 
-    for repeat_iteration in range(r):
-        print(f'Repeat iteration {repeat_iteration + 1} of {r}...')
-        tarify_parallel(top_tokens, out_path)
+    # Perform tarification once
+    print("Tarifying selected tokens...")
+    tarify_parallel(top_tokens, out_path, n_processes=n_processes)
+
+    # Copy tar files r-1 times with unique repetition suffixes
+    if r > 1:
+        print(f"Copying tar files {r - 1} additional times...")
+        original_tar_files = sorted(Path(out_path).glob('*.tar'))
+
+        for rep in range(1, r):
+            for tar_file in original_tar_files:
+                base_name = tar_file.stem  # e.g., '0000'
+                new_tar_name = tar_file.parent / f"{base_name}_{rep}.tar"
+                shutil.copy(str(tar_file), str(new_tar_name))
+                print(f"Copied {tar_file.name} to {new_tar_name.name}")
 
 
 if __name__ == '__main__':
