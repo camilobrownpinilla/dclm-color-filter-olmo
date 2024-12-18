@@ -55,12 +55,14 @@ def select(score_path, out_path, k, documents=False):
 
                 
 def tarify(paths_and_indices, out_path, max_length=8192):
-    """Packages list of paths and indices into tar files contaiing 'max_length'
-       .json.gz files.
+    """
+    Packages list of paths and indices into tar files containing 'max_length'
+    .json.gz files only.
 
     Args:
         paths_and_indices (list): List like [Path, [index range]]
         out_path (Path): Where to save .tars
+        max_length (int): Required token length for saving files.
     """
     os.makedirs(out_path, exist_ok=True)
     tar_splits = [paths_and_indices[x : x + max_length] 
@@ -71,17 +73,15 @@ def tarify(paths_and_indices, out_path, max_length=8192):
         tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
         with tarfile.open(tar_path, 'w') as tar:
             for i, (path, [start, stop]) in enumerate(batch):
-                # npy_data = np.lib.format.open_memmap(path)
-                # tokens = npy_data[start : stop]
                 tokens = _read_chunk_from_memmap(path, start, stop).tolist()
-
-                # Make json.gz out of tokens and add to tar
-                json_path = os.path.join(out_path, f'tar_{tar_count:05d}_chunk_{i:05d}.json.gz')
-                with gzip.open(json_path, 'wt') as json_file:
-                    json.dump(tokens, json_file)
-                tar.add(json_path, arcname=os.path.basename(json_path))
-                os.remove(json_path)
-
+                
+                if len(tokens) == max_length:
+                    json_path = os.path.join(out_path, f'tar_{tar_count:05d}_chunk_{i:05d}.json.gz')
+                    with gzip.open(json_path, 'wt') as json_file:
+                        json.dump(tokens, json_file)
+                    
+                    tar.add(json_path, arcname=os.path.basename(json_path))
+                    os.remove(json_path)  # Clean up intermediate file
         tar_count += 1
 
 
@@ -130,6 +130,7 @@ def select_top_n_tokens(score_path, out_path, n, r):
                     total_tokens += chunk_size
 
         iteration_out_path = os.path.join(out_path, f'repeat_{repeat:03d}')
+
         tarify(top_tokens, iteration_out_path)
 
 
