@@ -91,7 +91,7 @@ def main():
         f'--scale {args.dclm_scale} '
         f'--data-config {json_path} '
         f'--logs ./DCLM_logs '
-        # f'--multiple-data-passes' if args.multiple_data_passes else ''
+        f'--multiple-data-passes' if args.multiple_data_passes else ''
     )
     
     return_code = subprocess.call(dclm_args)

@@ -22,6 +22,7 @@ conda activate color-filter
 cd DCLM/
 
 python ../dclm.py \
-    --selected_dir /n/netscratch/sham_lab/Everyone/dclm/color_filter/data/selected/dclm-filtered_core-train-tasks_3-to-5/top_1b \
+    --selected_dir /n/netscratch/sham_lab/Everyone/dclm/color_filter/data/selected/dclm-filtered_core-train-tasks_3-to-5/top_1b_new \
     --dclm_scale 411m_1x\
     --evaluation heavy\
+    --multiple_data_passes
