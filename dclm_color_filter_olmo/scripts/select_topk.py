@@ -104,8 +104,8 @@ def tarify_parallel(paths_and_indices,
     """
     print(f'\033[33mTarifying across {n_processes} processes\033[0m')
     os.makedirs(out_path, exist_ok=True)
-    tar_splits = [paths_and_indices[x : x + max_length]
-                  for x in range(0, len(paths_and_indices), max_length)]
+    tar_splits = [paths_and_indices[x : x + max_length * 4]
+                  for x in range(0, len(paths_and_indices), max_length * 4)]
 
     # Prepare arguments for multiprocessing
     args = [
@@ -123,16 +123,21 @@ def _process_tar_batch(args):
     batch, out_path, tar_count, max_length = args
     tar_path = os.path.join(out_path, f'{tar_count:05d}.tar')
     with tarfile.open(tar_path, 'w') as tar:
+        tokens = [] 
         for i, (path, [start, stop]) in enumerate(batch):
-            tokens = _read_chunk_from_memmap(path, start, stop).tolist()
+            tokens += _read_chunk_from_memmap(path, start, stop).tolist()
+            tokens += [187] # Newline token for allenai/eleuther-ai-gpt-neox-20b-pii-special
 
-            json_filename = f'tar_{tar_count:05d}_chunk_{i:05d}.json.gz'
-            json_path = os.path.join(out_path, json_filename)
-            with gzip.open(json_path, 'wt') as json_file:
-                json.dump(tokens, json_file)
+            if i % 4 == 0 and i > 0: # Ensure > 2048 tokens (4 chunks of 512)
+                json_filename = f'tar_{tar_count:05d}_chunk_{i:05d}.json.gz'
+                json_path = os.path.join(out_path, json_filename)
+                with gzip.open(json_path, 'wt') as json_file:
+                    tokens = tokens[:2049] # Be sure there are only 2049 to avoid issues
+                    json.dump(tokens, json_file)
+                    tokens = []
 
-            tar.add(json_path, arcname=os.path.basename(json_filename))
-            os.remove(json_path)  # Clean up intermediate file
+                tar.add(json_path, arcname=os.path.basename(json_filename))
+                os.remove(json_path)  # Clean up intermediate file
 
 
 def _read_chunk_from_memmap(path, start, stop, dtype=np.uint16):
