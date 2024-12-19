@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parent / 'DCLM'))
 sys.path.append(str(Path(__file__).resolve().parent))  # Add the current directory to the sys.path
 SLURM_ID = os.environ.get('SLURM_JOB_ID')
 SLURM_TASK_ID = os.environ.get('SLURM_ARRAY_TASK_ID')
+SLURM_JOB_NAME = os.environ.get('SLURM_JOB_NAME')
 GPUS = len(os.environ.get('CUDA_VISIBLE_DEVICES').split(','))
 
 import logging
@@ -21,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(f'../logs/{SLURM_ID}_{SLURM_TASK_ID}.log')  
+        logging.FileHandler(f'../logs/{SLURM_JOB_NAME}_{SLURM_ID}_{SLURM_TASK_ID}.log')  
     ]
 )
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def main():
     parser.add_argument('--evaluation', type=str, required=True, default='light', 
                         choices=['light', 'gsm8k', 'heavy_code', 'heacy_ppl', 'heavy', 'math_code', 'medium', 'mmlu_and_lowvar', 'special', 'cot_fix_plus_gpq_triviaqa', 'cot_fix_plus_gpq'], 
                         help='Name of yaml in DCLM/eval that determines evaluation scheme')
-    parser.add_argument('--multiple_data_passes', action='store_true')
+    parser.add_argument('--multiple_data_passes', default=False, action='store_true')
     args = parser.parse_args()
 
 
@@ -90,8 +91,7 @@ def main():
         f'--scale {args.dclm_scale} '
         f'--data-config {json_path} '
         f'--logs ./DCLM_logs '
-        # f'--torchcompile '
-        f'--multiple-data-passes' if args.multiple_data_passes else ''
+        # f'--multiple-data-passes' if args.multiple_data_passes else ''
     )
     
     return_code = subprocess.call(dclm_args)
