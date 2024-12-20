@@ -10,6 +10,7 @@ import argparse
 import yaml
 import multiprocessing
 from tqdm import tqdm, trange
+import sys
 
 from olmo.util import get_bytes_range
 CPU_COUNT = multiprocessing.cpu_count()
@@ -26,25 +27,24 @@ def sample_n_tokens(score_path, out_path, n, T, n_processes=CPU_COUNT):
         T (float): 'Temperature' of softmax distribution
         n_processes (int, optional): How many cpu cores to use. Defaults to CPU_COUNT.
     """
-    global dist, scores, softmax_dist
+    global dist, scores, softmax_dist, selected_tokens
 
     # Read in json, store {score: metadata} dict
     dist = {}
     with open(score_path, 'r') as score_file:
         for line in tqdm(score_file, desc='Reading scores', colour='yellow', total=int(35e9 / 512)):
             data = json.loads(line)
-            dist[str(round(data['score'][0], 6))] = data['metadata'] 
+            dist[str(round(data['score'][0], 6))] = data['metadata']
 
-    # Softmax over scores
+    # Softmax over scores & sample in parallel
     scores = torch.tensor([float(key) for key in dist.keys()])
     softmax_dist = torch.softmax(scores/T, dim=0).numpy()
     softmax_dist /= softmax_dist.sum() # Explicit normalization b/c of fp precision errors
     selected_tokens = []
-    np.random.uniform()
     with multiprocessing.Pool(processes=n_processes) as pool:
         with tqdm(desc='Sampling', unit='Chunks', colour='green', total=n) as pbar:
-            for sample in pool.imap_unordered(_sample, range(n)):
-                selected_tokens.append(sample)
+            chunksize = min(sys.maxsize, n//CPU_COUNT)
+            for _ in pool.imap_unordered(_sample, range(n), chunksize=16392):
                 pbar.update(1)
 
     print('\U0001F608 \033[33mTarifying...\033[0m')
@@ -204,7 +204,7 @@ def tarify_parallel(paths_and_indices,
 def _sample(_):
         sampled_score = str(np.random.choice(scores, p=softmax_dist))
         path, chunk = dist[sampled_score]['path'], dist[sampled_score]['memmap_idx_range']
-        return [path, chunk]
+        selected_tokens.append([path, chunk])
 
 
 def _process_tar_batch(args):
