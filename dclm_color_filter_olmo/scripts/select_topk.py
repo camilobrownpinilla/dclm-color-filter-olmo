@@ -34,17 +34,20 @@ def sample_n_tokens(score_path, out_path, n, T, n_processes=CPU_COUNT):
     with open(score_path, 'r') as score_file:
         for line in tqdm(score_file, desc='Reading scores', colour='yellow', total=int(35e9 / 512)):
             data = json.loads(line)
-            dist[str(round(data['score'][0], 6))] = data['metadata']
-
+            # dist[(str(round(data['score'][0], 6)))] = data['metadata']
+            dist[f'{(data["score"][0]):.6f}'] = data['metadata']
+            break
+            
     # Softmax over scores & sample in parallel
     scores = torch.tensor([float(key) for key in dist.keys()])
     softmax_dist = torch.softmax(scores/T, dim=0).numpy()
     softmax_dist /= softmax_dist.sum() # Explicit normalization b/c of fp precision errors
     selected_tokens = []
     with multiprocessing.Pool(processes=n_processes) as pool:
-        with tqdm(desc='Sampling', unit='Chunks', colour='green', total=n) as pbar:
-            chunksize = min(sys.maxsize, n//CPU_COUNT)
-            for _ in pool.imap_unordered(_sample, range(n), chunksize=16392):
+        with tqdm(desc='Sampling', unit='Chunks', colour='green', total=n//int(1e7)//chunksize) as pbar:
+            chunksize = 16
+            for result in pool.imap_unordered(_sample, range(n//int(1e7)//chunksize), chunksize=chunksize):
+                selected_tokens.append(result)
                 pbar.update(1)
 
     print('\U0001F608 \033[33mTarifying...\033[0m')
@@ -202,10 +205,9 @@ def tarify_parallel(paths_and_indices,
 
 
 def _sample(_):
-        sampled_score = str(np.random.choice(scores, p=softmax_dist))
-        path, chunk = dist[sampled_score]['path'], dist[sampled_score]['memmap_idx_range']
-        selected_tokens.append([path, chunk])
-
+        sampled_score = np.random.choice(scores, size=int(1e7), p=softmax_dist)
+        tokens = [[dist[f'{score:.6f}']['path'], dist[f'{score:.6f}']['memmap_idx_range']] for score in sampled_score]
+        return tokens
 
 def _process_tar_batch(args):
     batch, out_path, tar_count, max_length = args
