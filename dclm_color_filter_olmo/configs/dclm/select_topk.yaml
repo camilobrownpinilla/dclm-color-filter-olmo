@@ -1,12 +1,15 @@
 score_path: /n/netscratch/sham_lab/Everyone/dclm/color_filter/scores/dclm-filtered_core-train-tasks_3-to-5/combined/chunk_scores.jsonl
-out_path: /n/netscratch/sham_lab/Everyone/dclm/color_filter/data/selected/dclm-filtered_core-train-tasks_3-to-5/top_1b
+out_path: /n/netscratch/sham_lab/Everyone/dclm/color_filter/data/selected/dclm-filtered_core-train-tasks_3-to-5/sampled-t=0.5
 
-# Use `n` and `repeat` to choose the top `n` tokens and repeat them `repeat` times.
-# This option is mutually exclusive with `k` and `documents`, which refer to top
-# `k` documents if documents is true or top `k` chunks otherwise. Set `n` and `repeat`
-# to null to allow chunk/document selection.
-n: 1_100_000_000
-repeat: 8
+# ******************************************************************************
+# Use `n` to specify the number of tokens to select. Toggle selection strategy
+# and relevant hyperparameters (temperature, repetitions) with `mode`
+# Chunk / document level selection is mutually exclusive with other modes. Set
+# Documents to True or False to toggle.
+# ******************************************************************************
+
+n: 8_800_000_000
+mode: ['sample', '1.'] # ('sample', T) or ('repeat', r)
 
 k: null
 documents: null
